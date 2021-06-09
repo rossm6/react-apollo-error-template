@@ -5,7 +5,10 @@ import {
   GraphQLID,
   GraphQLString,
   GraphQLList,
+  GraphQLInt,
+  GraphQLBoolean,
 } from 'graphql';
+
 const PersonType = new GraphQLObjectType({
   name: 'Person',
   fields: {
@@ -20,6 +23,22 @@ const peopleData = [
   { id: 3, name: 'Budd Deey' },
 ];
 
+
+const PaymentMethod = new GraphQLObjectType({
+  name: 'PaymentMethod',
+  fields: {
+    stripeId: { type: GraphQLString },
+    brand: { type: GraphQLString },
+    last4: { type: GraphQLInt }
+  },
+});
+
+
+let paymentMethodData = [
+  { stripeId: '1', brand: 'visa', last4: 1234 }
+];
+
+
 const QueryType = new GraphQLObjectType({
   name: 'Query',
   fields: {
@@ -27,25 +46,40 @@ const QueryType = new GraphQLObjectType({
       type: new GraphQLList(PersonType),
       resolve: () => peopleData,
     },
+    stripePaymentMethods: {
+      type: new GraphQLList(PaymentMethod),
+      resolve: () => paymentMethodData,
+    },
   },
 });
+
+
+const RemoveStripePaymentMethod = new GraphQLObjectType({
+  name: 'RemoveStripePaymentMethod',
+  fields: {
+    ok: { type: GraphQLBoolean },
+    paymentMethod: { type: PaymentMethod }
+  }
+});
+
 
 const MutationType = new GraphQLObjectType({
   name: 'Mutation',
   fields: {
-    addPerson: {
-      type: PersonType,
+    removeStripePaymentMethod: {
+      type: RemoveStripePaymentMethod,
       args: {
-        name: { type: GraphQLString },
+        stripeId: { type: GraphQLString },
       },
-      resolve: function (_, { name }) {
-        const person = {
-          id: peopleData[peopleData.length - 1].id + 1,
-          name,
-        };
-
-        peopleData.push(person);
-        return person;
+      resolve: function (_, { stripeId }) {
+        paymentMethodData = [];
+        peopleData.pop()
+        return {
+          ok: true,
+          paymentMethod: {
+            stripeId
+          }
+        }
       }
     },
   },
@@ -103,78 +137,133 @@ const ALL_PEOPLE = gql`
   }
 `;
 
-const ADD_PERSON = gql`
-  mutation AddPerson($name: String) {
-    addPerson(name: $name) {
-      id
-      name
+const ALL_PAYMENT_METHODS = gql`
+  query AllPaymentMethods {
+    stripePaymentMethods {
+      stripeId
+      brand
+      last4
     }
   }
 `;
 
-function App() {
-  const [name, setName] = useState('');
+const REMOVE_PAYMENT_METHOD = gql`
+  mutation RemovePaymentMethod($stripeId: String) {
+    removeStripePaymentMethod(stripeId: $stripeId) {
+      ok
+      paymentMethod {
+        stripeId
+
+      }
+    }
+  }
+`;
+
+
+function People() {
+
   const {
     loading,
     data,
-  } = useQuery(ALL_PEOPLE);
+  } = useQuery(ALL_PEOPLE, { fetchPolicy: 'network-only', });
 
-  const [addPerson] = useMutation(ADD_PERSON, {
-    update: (cache, { data: { addPerson: addPersonData } }) => {
-      const peopleResult = cache.readQuery({ query: ALL_PEOPLE });
-
-      cache.writeQuery({
-        query: ALL_PEOPLE,
-        data: {
-          ...peopleResult,
-          people: [
-            ...peopleResult.people,
-            addPersonData,
-          ],
-        },
-      });
-    },
-  });
+  console.log("people", data);
 
   return (
-    <main>
-      <h1>Apollo Client Issue Reproduction</h1>
-      <p>
-        This application can be used to demonstrate an error in Apollo Client.
-      </p>
-      <div className="add-person">
-        <label htmlFor="name">Name</label>
-        <input
-          type="text"
-          name="name"
-          value={name}
-          onChange={evt => setName(evt.target.value)}
-        />
-        <button
-          onClick={() => {
-            addPerson({ variables: { name } });
-            setName('');
-          }}
-        >
-          Add person
-        </button>
-      </div>
-      <h2>Names</h2>
-      {loading ? (
-        <p>Loading…</p>
-      ) : (
-        <ul>
-          {data?.people.map(person => (
-            <li key={person.id}>{person.name}</li>
-          ))}
-        </ul>
-      )}
-    </main>
+    <div>UI is irrelevant for people.  User must check dev tools to see if network has been hit again for ALL_PEOPLE QUERY
+      after removing the payment method.</div>
+  )
+
+}
+
+
+function PaymentMethods({
+  setState
+}) {
+
+  const stripeId = '1';
+
+  const {
+    loading,
+    data,
+  } = useQuery(ALL_PAYMENT_METHODS, {fetchPolicy: 'cache-first'});
+
+  console.log("data", data);
+
+  const [removeStripePaymentMethodMutation] = useMutation(REMOVE_PAYMENT_METHOD, {
+    update: (cache, { data }) => {
+      if (data?.removeStripePaymentMethod?.ok) {
+        cache.modify({
+          fields: {
+            stripePaymentMethods: (existingPaymentMethods = [], { readField }) => {
+              return existingPaymentMethods.filter(pm => readField('stripeId', pm) != stripeId)
+            }
+          }
+        });
+      }
+    }
+  });
+
+  const removeStripePaymentMethod = () => {
+    removeStripePaymentMethodMutation({
+      variables: {
+        stripeId: stripeId
+      },
+      optimisticResponse: {
+        removeStripePaymentMethod: {
+          ok: true,
+          __typename: "RemoveStripePaymentMethod",
+          paymentMethod: {
+            stripeId: 'duh',
+            __typename: "PaymentMethod",
+          }
+        }
+      }
+    })
+    .then(res => setState(1))
+  }
+
+  return (
+    <div>
+      {
+        data
+          ?
+          data.stripePaymentMethods.map((pm, i) => (
+            <p key={i}>pm.brand</p>
+          ))
+          :
+          null
+      }
+      <button onClick={removeStripePaymentMethod}>Remove Only Payment Method</button>
+    </div>
+  )
+
+}
+
+
+function App() {
+
+  const [state, setState] = useState(0);
+
+  return (
+    <div>
+      <People />
+      <PaymentMethods setState={setState} />
+    </div>
   );
 }
 
 const client = new ApolloClient({
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    typePolicies: {
+      PaymentMethod: {
+        keyFields: ["stripeId"],
+      },
+      RemoveStripePaymentMethod: {
+        keyFields: ["paymentMethod", ["stripeId"]]
+      }
+    }
+  }),
   link
 });
 
@@ -184,3 +273,4 @@ render(
   </ApolloProvider>,
   document.getElementById("root")
 );
+
