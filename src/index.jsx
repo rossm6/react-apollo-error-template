@@ -242,6 +242,8 @@ function App() {
 
   return (
     <div>
+      <p>Toggle the button to switch between states 'd' and 'w'</p>
+      <p>When the state is 'w' the data returned should be the object assigned to variable userData2 on the server side... it is not</p>
       <p>State is:</p>
       <p>{state}</p>
       <p>Data returned is:</p>
