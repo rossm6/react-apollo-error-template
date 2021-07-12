@@ -7,85 +7,134 @@ import {
   GraphQLList,
   GraphQLInt,
   GraphQLBoolean,
+  GraphQLEnumType,
 } from 'graphql';
 
-const PersonType = new GraphQLObjectType({
-  name: 'Person',
+
+
+const AggregatedDailyClicksNode = new GraphQLObjectType({
+  name: 'AggregatedDailyClicks',
   fields: {
-    id: { type: GraphQLID },
-    name: { type: GraphQLString },
-  },
-});
-
-const peopleData = [
-  { id: 1, name: 'John Smith' },
-  { id: 2, name: 'Sara Smith' },
-  { id: 3, name: 'Budd Deey' },
-];
-
-
-const PaymentMethod = new GraphQLObjectType({
-  name: 'PaymentMethod',
-  fields: {
-    stripeId: { type: GraphQLString },
-    brand: { type: GraphQLString },
-    last4: { type: GraphQLInt }
-  },
+    clicks: { type: GraphQLInt, resolve: (_) => { return _.clicks } },
+    date: { type: GraphQLString, resolve: (_) => { return _.date } }
+  }
 });
 
 
-let paymentMethodData = [
-  { stripeId: '1', brand: 'visa', last4: 1234 }
-];
+const ClicksSummary = new GraphQLObjectType({
+  name: 'ClicksSummary',
+  fields: {
+    total: {
+      type: GraphQLInt,
+      resolve: (_) => {
+        return _.total;
+      }
+    }
+  }
+});
+
+
+const DateRanges = new GraphQLEnumType({
+  name: 'DateRanges',
+  values: {
+    'd': {
+      'value': '1d'
+    },
+    'w': {
+      'value': '1w'
+    }
+  }
+});
+
+
+const Clicks = new GraphQLObjectType({
+  name: 'Clicks',
+  fields: {
+    days: {
+      type: new GraphQLList(AggregatedDailyClicksNode),
+      args: {
+        dateRange: { type: DateRanges }
+      },
+      resolve: (_) => {
+        return _.days;
+      }
+    },
+    summary: {
+      type: ClicksSummary,
+      resolve: (_) => {
+        return _.summary;
+      }
+    }
+  }
+});
+
+const UserType = new GraphQLObjectType({
+  name: 'User',
+  fields: {
+    id: {
+      type: GraphQLID,
+      resolve: (_) => {
+        return 1
+      }
+    },
+    clicks: {
+      type: Clicks,
+      args: {
+        from: { type: GraphQLInt },
+        to: { type: GraphQLInt },
+        dateRange: { type: DateRanges }
+      },
+      resolve: (_) => {
+        return _.clicks;
+      }
+    }
+  },
+});
+
+
+const userData1 = {
+  id: 1,
+  clicks: {
+    days: [{ date: '11/07/2021', clicks: 1 }],
+    summary: {
+      total: 1
+    }
+  }
+};
+
+
+const userData2 = {
+  id: 1,
+  clicks: {
+    days: [{ date: '11/07/2021', clicks: 1 }, { date: '12/07/2021', clicks: 2 }],
+    summary: {
+      total: 3
+    }
+  }
+};
 
 
 const QueryType = new GraphQLObjectType({
   name: 'Query',
   fields: {
-    people: {
-      type: new GraphQLList(PersonType),
-      resolve: () => peopleData,
-    },
-    stripePaymentMethods: {
-      type: new GraphQLList(PaymentMethod),
-      resolve: () => paymentMethodData,
-    },
-  },
-});
-
-
-const RemoveStripePaymentMethod = new GraphQLObjectType({
-  name: 'RemoveStripePaymentMethod',
-  fields: {
-    ok: { type: GraphQLBoolean },
-    paymentMethod: { type: PaymentMethod }
-  }
-});
-
-
-const MutationType = new GraphQLObjectType({
-  name: 'Mutation',
-  fields: {
-    removeStripePaymentMethod: {
-      type: RemoveStripePaymentMethod,
+    user: {
       args: {
-        stripeId: { type: GraphQLString },
+        dateRange: { type: DateRanges }
       },
-      resolve: function (_, { stripeId }) {
-        paymentMethodData = [];
-        peopleData.pop()
-        return {
-          ok: true,
-          paymentMethod: {
-            stripeId
-          }
+      type: UserType,
+      resolve: (_, { dateRange }) => {
+        console.log("server side date range", dateRange);
+        if (dateRange == '1d') {
+          return userData1;
         }
-      }
+        return userData2;
+      },
     },
   },
 });
 
-const schema = new GraphQLSchema({ query: QueryType, mutation: MutationType });
+
+const schema = new GraphQLSchema({ query: QueryType });
 
 /*** LINK ***/
 import { graphql, print } from "graphql";
@@ -116,7 +165,7 @@ const link = new ApolloLink(operation => {
 });
 
 /*** APP ***/
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { render } from "react-dom";
 import {
   ApolloClient,
@@ -128,141 +177,82 @@ import {
 } from "@apollo/client";
 import "./index.css";
 
-const ALL_PEOPLE = gql`
-  query AllPeople {
-    people {
+
+const GET_CLICKS_DATA = gql`
+  query GET_CLICKS_DATA ($from: Int!, $to: Int!, $dateRange: DateRanges!){
+    user (dateRange: $dateRange) {
       id
-      name
-    }
-  }
-`;
-
-const ALL_PAYMENT_METHODS = gql`
-  query AllPaymentMethods {
-    stripePaymentMethods {
-      stripeId
-      brand
-      last4
-    }
-  }
-`;
-
-const REMOVE_PAYMENT_METHOD = gql`
-  mutation RemovePaymentMethod($stripeId: String) {
-    removeStripePaymentMethod(stripeId: $stripeId) {
-      ok
-      paymentMethod {
-        stripeId
-
-      }
-    }
-  }
-`;
-
-
-function People() {
-
-  const {
-    loading,
-    data,
-  } = useQuery(ALL_PEOPLE, { fetchPolicy: 'network-only', });
-
-  console.log("people", data);
-
-  return (
-    <div>UI is irrelevant for people.  User must check dev tools to see if network has been hit again for ALL_PEOPLE QUERY
-      after removing the payment method.</div>
-  )
-
-}
-
-
-function PaymentMethods({
-  setState
-}) {
-
-  const stripeId = '1';
-
-  const {
-    loading,
-    data,
-  } = useQuery(ALL_PAYMENT_METHODS, {fetchPolicy: 'cache-first'});
-
-  console.log("data", data);
-
-  const [removeStripePaymentMethodMutation] = useMutation(REMOVE_PAYMENT_METHOD, {
-    update: (cache, { data }) => {
-      if (data?.removeStripePaymentMethod?.ok) {
-        cache.modify({
-          fields: {
-            stripePaymentMethods: (existingPaymentMethods = [], { readField }) => {
-              return existingPaymentMethods.filter(pm => readField('stripeId', pm) != stripeId)
-            }
-          }
-        });
-      }
-    }
-  });
-
-  const removeStripePaymentMethod = () => {
-    removeStripePaymentMethodMutation({
-      variables: {
-        stripeId: stripeId
-      },
-      optimisticResponse: {
-        removeStripePaymentMethod: {
-          ok: true,
-          __typename: "RemoveStripePaymentMethod",
-          paymentMethod: {
-            stripeId: 'duh',
-            __typename: "PaymentMethod",
-          }
+      clicks (from: $from, to: $to, dateRange: $dateRange) {
+        days (dateRange: $dateRange) {
+          date
+          clicks
         }
-      }
-    })
-    .then(res => setState(1))
+        summary {
+          total
+        }
+    }
+   }
   }
-
-  return (
-    <div>
-      {
-        data
-          ?
-          data.stripePaymentMethods.map((pm, i) => (
-            <p key={i}>pm.brand</p>
-          ))
-          :
-          null
-      }
-      <button onClick={removeStripePaymentMethod}>Remove Only Payment Method</button>
-    </div>
-  )
-
-}
-
+`;
 
 function App() {
 
-  const [state, setState] = useState(0);
+  const [state, setState] = useState('d');
+
+  const
+    {
+      data: clicksData,
+      fetchMore: clicksFetchMore,
+      loading: clicksLoading,
+      called: clicksCalled
+    } = useQuery(GET_CLICKS_DATA, {
+      variables: {
+        from: 1,
+        to: 2,
+        dateRange: 'd'
+      },
+      fetchPolicy: 'network-only',
+      nextFetchPolicy: 'cache-first',
+      // Without the "nextFetchPolicy" it hits the network a second time with no variables !!!
+      notifyOnNetworkStatusChange: true,
+    });
+
+  const changeDateRange = () => {
+    if (state == "d") {
+      setState("w");
+    }
+    else {
+      setState("d");
+    }
+  };
+
+
+  useEffect(() => {
+    clicksFetchMore({
+      variables: {
+        from: 1, // irrelevant to back end but mimics my own problem
+        to: 2, // likewise
+        dateRange: state
+      }
+    })
+  }, [state])
+
+
+  console.log("clicks data", clicksData);
 
   return (
     <div>
-      <People />
-      <PaymentMethods setState={setState} />
+      <p>State is:</p>
+      <p>{state}</p>
+      <p>Data returned is:</p>
+      <p>{`${JSON.stringify(clicksData)}`}</p>
+      <p><button onClick={changeDateRange}>Change Data</button></p>
     </div>
   );
 }
 
 const client = new ApolloClient({
   cache: new InMemoryCache({
-    typePolicies: {
-      PaymentMethod: {
-        keyFields: ["stripeId"],
-      },
-      RemoveStripePaymentMethod: {
-        keyFields: ["paymentMethod", ["stripeId"]]
-      }
-    }
   }),
   link
 });
