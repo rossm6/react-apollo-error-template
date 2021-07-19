@@ -144,6 +144,9 @@ function delay(wait) {
 }
 
 const link = new ApolloLink(operation => {
+
+  console.log("network request")
+
   return new Observable(async observer => {
     const { query, operationName, variables } = operation;
     await delay(300);
@@ -176,6 +179,8 @@ import {
   useMutation,
 } from "@apollo/client";
 import "./index.css";
+
+
 
 
 const GET_CLICKS_DATA = gql`
@@ -211,8 +216,8 @@ function App() {
         to: 2,
         dateRange: 'd'
       },
-      fetchPolicy: 'network-only',
-      nextFetchPolicy: 'cache-first',
+      fetchPolicy: 'no-cache',
+      nextFetchPolicy: 'no-cache',
       // Without the "nextFetchPolicy" it hits the network a second time with no variables !!!
       notifyOnNetworkStatusChange: true,
     });
@@ -237,7 +242,6 @@ function App() {
     })
   }, [state])
 
-
   console.log("clicks data", clicksData);
 
   return (
@@ -255,6 +259,38 @@ function App() {
 
 const client = new ApolloClient({
   cache: new InMemoryCache({
+    typePolicies: {
+      Clicks: {
+        fields: {
+          days: {
+            keyArgs: false,
+            merge(existing, incoming) {
+              console.log("merge clicks", incoming);
+              return incoming;
+            },
+            read(existing) {
+              console.log("existing clicks", existing);
+              return existing;
+            },
+          }
+        }
+      },
+      User: {
+        fields: {
+          clicks: {
+            keyArgs: false,
+            merge(existing, incoming) {
+              console.log("merge clicks", incoming);
+              return incoming;
+            },
+            read(existing) {
+              console.log("existing clicks", existing);
+              return existing;
+            },
+          },
+        }
+      },
+    }
   }),
   link
 });
