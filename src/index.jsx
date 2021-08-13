@@ -12,126 +12,382 @@ import {
 
 
 
-const AggregatedDailyClicksNode = new GraphQLObjectType({
-  name: 'AggregatedDailyClicks',
-  fields: {
-    clicks: { type: GraphQLInt, resolve: (_) => { return _.clicks } },
-    date: { type: GraphQLString, resolve: (_) => { return _.date } }
-  }
-});
+// const AggregatedDailyClicksNode = new GraphQLObjectType({
+//   name: 'AggregatedDailyClicks',
+//   fields: {
+//     clicks: { type: GraphQLInt, resolve: (_) => { return _.clicks } },
+//     date: { type: GraphQLString, resolve: (_) => { return _.date } }
+//   }
+// });
 
 
-const ClicksSummary = new GraphQLObjectType({
-  name: 'ClicksSummary',
-  fields: {
-    total: {
-      type: GraphQLInt,
-      resolve: (_) => {
-        return _.total;
-      }
-    }
-  }
-});
+// const ClicksSummary = new GraphQLObjectType({
+//   name: 'ClicksSummary',
+//   fields: {
+//     total: {
+//       type: GraphQLInt,
+//       resolve: (_) => {
+//         return _.total;
+//       }
+//     }
+//   }
+// });
 
 
-const DateRanges = new GraphQLEnumType({
-  name: 'DateRanges',
-  values: {
-    'd': {
-      'value': '1d'
-    },
-    'w': {
-      'value': '1w'
-    }
-  }
-});
+// const DateRanges = new GraphQLEnumType({
+//   name: 'DateRanges',
+//   values: {
+//     'd': {
+//       'value': '1d'
+//     },
+//     'w': {
+//       'value': '1w'
+//     }
+//   }
+// });
 
 
-const Clicks = new GraphQLObjectType({
-  name: 'Clicks',
-  fields: {
-    days: {
-      type: new GraphQLList(AggregatedDailyClicksNode),
-      args: {
-        dateRange: { type: DateRanges }
-      },
-      resolve: (_) => {
-        return _.days;
-      }
-    },
-    summary: {
-      type: ClicksSummary,
-      resolve: (_) => {
-        return _.summary;
-      }
-    }
-  }
-});
 
-const UserType = new GraphQLObjectType({
-  name: 'User',
+const JobNode = new GraphQLObjectType({
+  name: 'JobNode',
   fields: {
     id: {
       type: GraphQLID,
       resolve: (_) => {
-        return 1
+        return "j1"
       }
     },
-    clicks: {
-      type: Clicks,
+    title: {
+      type: GraphQLString,
+      resolve: (_) => {
+        return "some job"
+      }
+    },
+  }
+});
+
+
+const JobEdge = new GraphQLObjectType({
+  name: 'JobEdge',
+  fields: {
+    cursor: {
+      type: GraphQLString,
+      resolve: (_) => {
+        "cursor"
+      }
+    },
+    node: {
+      type: JobNode,
+      resolve: (_) => {
+
+      }
+    }
+  }
+});
+
+
+
+const PageInfo = new GraphQLObjectType({
+  name: 'PageInfo',
+  fields: {
+    cursor: {
+      type: GraphQLString,
+      resolve: (_) => {
+        return _.cursor;
+      }
+    },
+    pageNumber: {
+      type: GraphQLString,
+      resolve: (_) => {
+        return _.pageNumber;
+      }
+    },
+    isCurrent: {
+      type: GraphQLBoolean,
+      resolve: (_) => {
+        return _.isCurrent;
+      }
+    },
+  }
+});
+
+
+const PagesInfo = new GraphQLObjectType({
+  name: 'PagesInfo',
+  fields: {
+    first: {
+      type: PageInfo,
+      resolve: (_) => {
+        return _.first;
+      }
+    },
+    last: {
+      type: PageInfo,
+      resolve: (_) => {
+        return _.last;
+      }
+    },
+    around: {
+      type: PageInfo,
+      resolve: (_) => {
+        return _.around;
+      }
+    },
+    previous: {
+      type: PageInfo,
+      resolve: (_) => {
+        return _.previous;
+      }
+    }
+  }
+});
+
+
+const JobsConnection = new GraphQLObjectType({
+  name: 'JobsConnection',
+  fields: {
+    edges: {
+      type: new GraphQLList(JobEdge),
+      resolve: (_) => {
+        return _.edges;
+      }
+    },
+    pages: {
+      type: PagesInfo,
       args: {
-        from: { type: GraphQLInt },
-        to: { type: GraphQLInt },
-        dateRange: { type: DateRanges }
+        pageSize: { type: GraphQLInt }
       },
       resolve: (_) => {
-        return _.clicks;
+        return _.pages
+      }
+    }
+  }
+});
+
+
+
+const AddressNode = new GraphQLObjectType({
+  name: 'Address',
+  fields: {
+    id: {
+      type: GraphQLID,
+      resolve: (_) => {
+        return _.id
+      }
+    },
+    actual: {
+      type: GraphQLString,
+      resolve: (_) => {
+        return _.actual
+      }
+    },
+  }
+});
+
+
+const CreatorNode = new GraphQLObjectType({
+  name: 'Creator',
+  fields: {
+    id: {
+      type: GraphQLID,
+      resolve: (_) => {
+        return _.id
+      }
+    },
+    name: {
+      type: GraphQLString,
+      resolve: (_) => {
+        return _.name
+      }
+    },
+    address: {
+      type: AddressNode,
+      resolve: (_) => {
+        return _.address
+      }
+    },
+    jobs: {
+      type: JobsConnection,
+      args: {
+        first: { type: GraphQLInt },
+        after: { type: GraphQLString },
+        orderBy: { type: GraphQLString }
+      },
+      resolve: (_) => {
+        return _.jobs
+      }
+    }
+  }
+});
+
+const ProfileNode = new GraphQLObjectType({
+  name: 'Profile',
+  fields: {
+    id: {
+      type: GraphQLID,
+      resolve: (_) => {
+        return _.id
+      }
+    },
+    role: {
+      type: GraphQLString,
+      resolve: (_) => {
+        return _.role
+      }
+    },
+    creator: {
+      type: CreatorNode,
+      resolve: (_) => {
+        return _.creator
       }
     }
   },
 });
 
 
-const userData1 = {
-  id: 1,
-  clicks: {
-    days: [{ date: '11/07/2021', clicks: 1 }],
-    summary: {
-      total: 1
+const profile1 = {
+  id: "p1",
+  role: 'e',
+  creator: {
+    id: "c1",
+    pk: 1,
+    name: 'dave',
+    address: {
+      id: "a1",
+      actual: "some place"
+    },
+    jobs: {
+      edges: [
+        {
+          cursor: "c1",
+          node: {
+            id: "n1",
+            title: "title 1"
+          }
+        },
+        {
+          cursor: "c2",
+          node: {
+            id: "n2",
+            title: "title 2"
+          }
+        },
+      ],
+      pages: {
+        first: {
+          cursor: "c1",
+          pageNumber: 1,
+          isCurrent: true
+        },
+        last: {
+          cursor: "c3",
+          pageNumber: 2,
+          isCurrent: false
+        },
+        around: [
+          {
+            cursor: "c1",
+            pageNumber: 1,
+            isCurrent: true
+          },
+          {
+            cursor: "c3",
+            pageNumber: 2,
+            isCurrent: false
+          }
+        ],
+        previous: null
+      }
     }
   }
 };
 
-
-const userData2 = {
-  id: 1,
-  clicks: {
-    days: [{ date: '11/07/2021', clicks: 1 }, { date: '12/07/2021', clicks: 2 }],
-    summary: {
-      total: 3
+const profile2 = {
+  ...profile1,
+  creator: {
+    ...profile1.creator,
+    jobs: {
+      edges: [
+        {
+          cursor: "c3",
+          node: {
+            id: "n3",
+            title: "title 3"
+          }
+        },
+      ],
+      pages: {
+        first: {
+          cursor: "c1",
+          pageNumber: 1,
+          isCurrent: false
+        },
+        last: {
+          cursor: "c3",
+          pageNumber: 2,
+          isCurrent: true
+        },
+        around: [
+          {
+            cursor: "c1",
+            pageNumber: 1,
+            isCurrent: false
+          },
+          {
+            cursor: "c3",
+            pageNumber: 2,
+            isCurrent: true
+          }
+        ],
+        previous: {
+          cursor: "c1",
+          pageNumber: 1,
+          isCurrent: false
+        }
+      }
     }
   }
 };
 
+let r = 0;
 
 const QueryType = new GraphQLObjectType({
   name: 'Query',
   fields: {
-    user: {
-      args: {
-        dateRange: { type: DateRanges }
-      },
-      type: UserType,
-      resolve: (_, { dateRange }) => {
-        console.log("server side date range", dateRange);
-        if (dateRange == '1d') {
-          return userData1;
+    profile: {
+      type: ProfileNode,
+      resolve: () => {
+        if(r == 0){
+          return profile1
         }
-        return userData2;
+        else{
+          profile2
+        }
       },
     },
   },
 });
+
+
+
+// const QueryType = new GraphQLObjectType({
+//   name: 'Query',
+//   fields: {
+//     user: {
+//       args: {
+//         dateRange: { type: DateRanges }
+//       },
+//       type: UserType,
+//       resolve: (_, { dateRange }) => {
+//         console.log("server side date range", dateRange);
+//         if (dateRange == '1d') {
+//           return userData1;
+//         }
+//         return userData2;
+//       },
+//     },
+//   },
+// });
 
 
 const schema = new GraphQLSchema({ query: QueryType });
@@ -168,7 +424,7 @@ const link = new ApolloLink(operation => {
 });
 
 /*** APP ***/
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { render } from "react-dom";
 import {
   ApolloClient,
@@ -177,117 +433,133 @@ import {
   gql,
   useQuery,
   useMutation,
+  useLazyQuery
 } from "@apollo/client";
 import "./index.css";
 
 
 
 
-const GET_CLICKS_DATA = gql`
-  query GET_CLICKS_DATA ($from: Int!, $to: Int!, $dateRange: DateRanges!){
-    user (dateRange: $dateRange) {
+const GET_JOBS_FOR_CREATOR = gql`
+  query GET_JOBS_FOR_CREATOR ($first: Int!, $after: String, $orderBy: String, $pageSize: Int!) {
+    profile {
       id
-      clicks (from: $from, to: $to, dateRange: $dateRange) {
-        days (dateRange: $dateRange) {
-          date
-          clicks
+      role
+      creator {
+        id
+        name
+        address {
+          id
+          actual
         }
-        summary {
-          total
+        jobs (first: $first, after: $after, orderBy: $orderBy) {
+          edges {
+            cursor
+            node {
+              id
+              title
+            }
+          }
+          pages (pageSize: $pageSize) {
+            first {
+              cursor
+              pageNumber
+              isCurrent
+            }
+            last {
+              cursor
+              pageNumber
+              isCurrent
+            }
+            around {
+              cursor
+              pageNumber
+              isCurrent
+            }
+            previous {
+              cursor
+              pageNumber
+              isCurrent
+            }
+          }
         }
+      }
     }
-   }
   }
 `;
 
 function App() {
 
-  const [state, setState] = useState('d');
+  const [state, setState] = useState(0);
 
-  const
+  const [
+    fetchInitial,
     {
-      data: clicksData,
-      fetchMore: clicksFetchMore,
-      loading: clicksLoading,
-      called: clicksCalled
-    } = useQuery(GET_CLICKS_DATA, {
-      variables: {
-        from: 1,
-        to: 2,
-        dateRange: 'd'
-      },
-      fetchPolicy: 'no-cache',
-      nextFetchPolicy: 'no-cache',
-      // Without the "nextFetchPolicy" it hits the network a second time with no variables !!!
-      notifyOnNetworkStatusChange: true,
-    });
-
-  const changeDateRange = () => {
-    if (state == "d") {
-      setState("w");
+      data,
+      fetchMore,
+      loading,
+      called,
+      client
     }
-    else {
-      setState("d");
-    }
-  };
+  ] = useLazyQuery(GET_JOBS_FOR_CREATOR, {
+    fetchPolicy: 'network-only',
+    nextFetchPolicy: 'cache-first',
+    notifyOnNetworkStatusChange: true,
+  });
 
+  const fetchCount = useRef(0);
+  if (called) {
+    fetchCount.current = 1
+  }
 
   useEffect(() => {
-    clicksFetchMore({
-      variables: {
-        from: 1, // irrelevant to back end but mimics my own problem
-        to: 2, // likewise
-        dateRange: state
-      }
-    })
-  }, [state])
+    if (!fetchCount.current) {
+      console.log("fetch initial");
+      fetchInitial({
+        variables: {
+          first: 2,
+          after: "",
+          orderBy: "",
+          pageSize: 2
+        }
+      });
+    }
+    else {
+      console.log("fetch more");
+      fetchMore({
+        variables: {
+          first: 2,
+          after: "c2",
+          orderBy: "",
+          pageSize: 2
+        }
+      });
+    }
+  }, [fetchInitial, fetchMore])
 
-  console.log("clicks data", clicksData);
+
+  console.log("client", client);
+
 
   return (
-    <div>
-      <p>Toggle the button to switch between states 'd' and 'w'</p>
-      <p>When the state is 'w' the data returned should be the object assigned to variable userData2 on the server side... it is not</p>
-      <p>State is:</p>
-      <p>{state}</p>
-      <p>Data returned is:</p>
-      <p>{`${JSON.stringify(clicksData)}`}</p>
-      <p><button onClick={changeDateRange}>Change Data</button></p>
-    </div>
+    <button onClick={() => setState(1)}>Fetch More</button>
   );
 }
 
 const client = new ApolloClient({
   cache: new InMemoryCache({
     typePolicies: {
-      Clicks: {
+      CreatorNode: {
         fields: {
-          days: {
+          jobs: {
             keyArgs: false,
             merge(existing, incoming) {
-              console.log("merge clicks", incoming);
+              // replace the cache with the new
+              // i.e. do not cache
+              console.log("incoming jobs", incoming);
               return incoming;
-            },
-            read(existing) {
-              console.log("existing clicks", existing);
-              return existing;
             },
           }
-        }
-      },
-      User: {
-        fields: {
-          clicks: {
-            keyArgs: false,
-            merge(existing, incoming) {
-              console.log("merge clicks", incoming);
-              return incoming;
-            },
-            read(existing) {
-              console.log("existing clicks", existing);
-              return existing;
-            },
-          },
         }
       },
     }
